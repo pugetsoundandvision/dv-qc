@@ -20,7 +20,7 @@ class QcTarget
   end
 
   def output_csv_line
-    line = [ @file_name, @total_frames, @total_segments, @error_percentages[0], @error_percentages[1], @error_percentages[2] ]
+    line = [ @file_name, @total_frames, @total_segments, @segment_characteristics, @error_percentages[0], @error_percentages[1], @error_percentages[2] ]
     return line
   end
 
@@ -30,11 +30,22 @@ class QcTarget
   end
 
   def get_segment_info
+  	@audio_rates = []
+  	@video_rates = []
+  	@chroma_subsamplings = []
+  	@aspect_ratios = []
+  	@channels = []
     @total_frames = 0 
     @file_name = File.basename(@input_path)
+    @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @audio_rates << segment.attribute('audio_rate').value unless segment.attribute('audio_rate').nil?}
+    @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @video_rates << segment.attribute('video_rate').value }
+    @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @chroma_subsamplings << segment.attribute('chroma_subsampling').value unless segment.attribute('chroma_subsampling').nil? }
+    @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @aspect_ratios << segment.attribute('aspect_ratio').value unless segment.attribute('aspect_ratio').nil? }
+    @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @channels << segment.attribute('channels').value unless segment.attribute('channels').nil? }
     @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @total_frames += segment.attribute('count').value.to_i }
+    @segment_characteristics = [@audio_rates.uniq, @video_rates.uniq, @chroma_subsamplings.uniq, @aspect_ratios.uniq, @channels.uniq]
     @total_segments = @dv_meta.xpath('/dvrescue/media/frames').count
-    [@file_name, @total_frames, @total_segments]
+    [@file_name, @total_frames, @total_segments, @segment_characteristics]
   end
 
   def get_frame_info
@@ -90,7 +101,7 @@ timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/dvqc_out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename', 'Total Frames', 'Total Segments', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%']
+  headers = ['Filename', 'Total Frames', 'Total Segments', 'Segment Characteristics', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%']
   csv << headers
   write_to_csv.each do |line|
     csv << line
