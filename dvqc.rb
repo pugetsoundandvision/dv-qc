@@ -6,6 +6,7 @@ require 'optparse'
 require 'yaml'
 
 Ntsc_max_difblocks = 1350.00
+Ntsc_dif_seqs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 def check_for_dv(target)
   target_data = JSON.parse(`mediainfo --Output=JSON #{target}`)
@@ -56,13 +57,18 @@ class QcTarget
       dseq_position = []
       sta_counts = []
       frame_info << parsed_frame.attribute('pts').value
-      frame_info << parsed_frame.xpath('dseq').count
-      parsed_frame.xpath('dseq').each do |dseq| 
-        dseq_position << dseq.attribute('n').value
-        sta_counts << dseq.xpath('sta').attribute('n').value.to_f
+      if (parsed_frame.attribute('full_conceal_vid').nil? || parsed_frame.attribute('full_conceal').nil?)
+        frame_info << parsed_frame.xpath('dseq').count
+        parsed_frame.xpath('dseq').each do |dseq|
+          dseq_position << dseq.attribute('n').value
+          sta_counts << dseq.xpath('sta').attribute('n').value.to_f
+        end
+        frame_info << dseq_position
+        frame_info << (sta_counts.sum / Ntsc_max_difblocks * 100).to_i
+      else
+        frame_info << Ntsc_dif_seqs
+        frame_info << 100
       end
-      frame_info << dseq_position
-      frame_info << (sta_counts.sum / Ntsc_max_difblocks * 100).to_i
       @all_frames << frame_info
     end
     return @all_frames
