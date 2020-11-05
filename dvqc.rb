@@ -21,7 +21,7 @@ class QcTarget
   end
 
   def output_csv_line
-    line = [ @file_name, @total_frames, @total_segments, @segment_characteristics, @error_percentages[0], @error_percentages[1], @error_percentages[2] ]
+    line = [ @file_name, @total_frames, @total_segments, @segment_characteristics, @error_percentages[0], @error_percentages[1], @error_percentages[2], @error_percentages[3] ]
     return line
   end
 
@@ -84,7 +84,8 @@ class QcTarget
       twenty_percent += 1 if (error_percent <= 20 && error_percent > 10)
       more_than_twenty += 1 if error_percent >= 21
     end
-    @error_percentages = [ten_percent, twenty_percent, more_than_twenty]
+    percent_error_frame = (@all_frames.count.to_f / @total_frames * 100).round(2)
+    @error_percentages = [ten_percent, twenty_percent, more_than_twenty, percent_error_frame]
   end
 end
 
@@ -107,7 +108,7 @@ timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/dvqc_out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename', 'Total Frames', 'Total Segments', 'Segment Characteristics', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%']
+  headers = ['Filename', 'Total Frames', 'Total Segments', 'Segment Characteristics', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%', 'Percent of frames with errors']
   csv << headers
   write_to_csv.each do |line|
     csv << line
