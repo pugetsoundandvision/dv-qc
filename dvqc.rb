@@ -21,7 +21,7 @@ class QcTarget
   end
 
   def output_csv_line
-    line = [ @file_name, @total_frames, @total_segments, @segment_characteristics, @error_percentages[0], @error_percentages[1], @error_percentages[2], @error_percentages[3] ]
+    line = [ @file_name, @total_frames, @total_segments, @segment_characteristics, @possible_head_clogs, @even_clogs, @odd_clogs, @error_percentages[0], @error_percentages[1], @error_percentages[2], @error_percentages[3] ]
     return line
   end
 
@@ -31,11 +31,11 @@ class QcTarget
   end
 
   def get_segment_info
-  	@audio_rates = []
-  	@video_rates = []
-  	@chroma_subsamplings = []
-  	@aspect_ratios = []
-  	@channels = []
+    @audio_rates = []
+    @video_rates = []
+    @chroma_subsamplings = []
+    @aspect_ratios = []
+    @channels = []
     @total_frames = 0 
     @file_name = File.basename(@input_path)
     @dv_meta.xpath('/dvrescue/media/frames').each { |segment| @audio_rates << segment.attribute('audio_rate').value unless segment.attribute('audio_rate').nil?}
@@ -61,7 +61,7 @@ class QcTarget
         frame_info << parsed_frame.xpath('dseq').count
         parsed_frame.xpath('dseq').each do |dseq|
           dseq_position << dseq.attribute('n').value
-          sta_counts << dseq.xpath('sta').attribute('n').value.to_f
+          sta_counts << dseq.xpath('sta').attribute('n').value.to_f unless dseq.xpath('sta').attribute('n').nil?
         end
         frame_info << dseq_position
         frame_info << (sta_counts.sum / Ntsc_max_difblocks * 100).to_i
@@ -87,6 +87,24 @@ class QcTarget
     percent_error_frame = (@all_frames.count.to_f / @total_frames * 100).round(2)
     @error_percentages = [ten_percent, twenty_percent, more_than_twenty, percent_error_frame]
   end
+
+  def check_head_clogs
+    @possible_head_clogs = []
+    @even_clogs = 0
+    @odd_clogs = 0
+    @all_frames.each do |frame_positions|
+      if frame_positions[2].count > 3
+        if frame_positions[2].all? {|num| num.to_i.even?}
+          @possible_head_clogs << frame_positions[0] 
+          @even_clogs += 1
+        end
+        if frame_positions[2].all? {|num| num.to_i.odd?}
+          @possible_head_clogs << frame_positions[0] 
+          @odd_clogs += 1
+        end
+      end
+    end
+  end
 end
 
 dv_files = []
@@ -101,6 +119,7 @@ target = QcTarget.new(File.expand_path(target_file))
   target.get_segment_info
   target.get_frame_info
   target.sort_error_percentages
+  target.check_head_clogs
   write_to_csv << target.output_csv_line
 end
 
@@ -108,7 +127,7 @@ timestamp = Time.now.strftime('%Y-%m-%d_%H-%M-%S')
 output_csv = ENV['HOME'] + "/Desktop/dvqc_out_#{timestamp}.csv"
 
 CSV.open(output_csv, 'wb') do |csv|
-  headers = ['Filename', 'Total Frames', 'Total Segments', 'Segment Characteristics', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%', 'Percent of frames with errors']
+  headers = ['Filename', 'Total Frames', 'Total Segments', 'Segment Characteristics', 'Possible Head Clogs', 'Even Clogs', 'Odd Clogs', 'Error rate less than 10%', 'Error rate between 10-20%', 'Error rate above 20%', 'Percent of frames with errors']
   csv << headers
   write_to_csv.each do |line|
     csv << line
