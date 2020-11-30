@@ -26,6 +26,7 @@ class QcTarget
   end
 
   def get_dvrescue_xml
+    puts "Scanning: #{File.basename(@input_path)}"
     @dv_meta = Nokogiri::XML`dvrescue #{@input_path}`
     @dv_meta.remove_namespaces!
   end
@@ -110,7 +111,14 @@ end
 dv_files = []
 write_to_csv = []
 ARGV.each do |input|
-  dv_files << input if check_for_dv(input)
+  if File.file?(input)
+    dv_files << input if check_for_dv(input)
+  elsif File.directory?(input)
+    dir_contents = Dir.glob("#{input}/**/*.dv")
+    dir_contents += Dir.glob("#{input}/**/*.mkv")
+    dir_contents += Dir.glob("#{input}/**/*.mov")
+    dir_contents.each {|file| dv_files << file if check_for_dv(file)}
+  end
 end
 
 dv_files.each do |target_file|
